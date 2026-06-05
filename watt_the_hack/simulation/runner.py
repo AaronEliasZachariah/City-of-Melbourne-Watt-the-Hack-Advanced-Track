@@ -162,6 +162,18 @@ def run_strategy(
             _handle_error(on_error, "step", i, exc)
             action = dict(ZERO_ACTION)
 
+        # Fold any agent_plan the step returned into the persistent plan, so
+        # every agent_plan key the engine reads — whether from state
+        # (emergency_exemption, phishing bait) or from the action
+        # (containment_ack, anomaly_ack) — sees it regardless of where the
+        # controller set it. This makes the channel forgiving: returning an
+        # agent_plan from step() "just works", same as setting it in
+        # plan()/replan(). Keys accumulate and persist across steps.
+        step_plan = action.get("agent_plan")
+        if isinstance(step_plan, dict):
+            agent_plan = {**agent_plan, **step_plan}
+            state["agent_plan"] = agent_plan
+
         state, outputs = engine.step(state, action)
         metrics.update(state, outputs)
         for k, v in outputs.get("cost_breakdown", {}).items():
